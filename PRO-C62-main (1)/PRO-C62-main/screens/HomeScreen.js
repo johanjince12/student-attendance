@@ -1,146 +1,135 @@
-import React, { Component } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity } from 'react-native';
-import { Header } from 'react-native-elements';
-export default class HomeScreen extends Component{
+import * as React from 'react';
+import {View,Text,TouchableOpacity,StyleSheet,Button} from 'react-native';
+import db from '../config';
+
+export default class HomeScreen extends React.Component{
   constructor() {
     super();
     this.state = {
-      text: '',
-      isSearchPressed: false,
-      isLoading: false,
-      word  : "Loading...",
-      lexicalCategory :'',
-      definition : ""
+      all_students: [],
+      presentPressedList: [],
+      absentPressedList: [],
     };
   }
 
-  getWord=(word)=>{
-    var searchKeyword=word.toLowerCase()
-    var url = "https://rupinwhitehatjr.github.io/dictionary/"+searchKeyword+".json"
-    //console.log(url)
-    return fetch(url)
-    .then((data)=>{
-      if(data.status===200)
-      {
-        return data.json()
+  componentDidMount = async() => {
+    var class_ref =await db.ref('/').on('value', data => {
+      var all_students =  []
+      var class_a = data.val();
+      for (var i in class_a) {
+        all_students.push(class_a[i]);
       }
-      else
-      {
-        return null
-      }
-    })
-    .then((response)=>{
-        //console.log(response)
+      all_students.sort(function(a, b) {
+        return a.roll_no - b.roll_no;
+      });
+      this.setState({ all_students: all_students });
+      console.log(all_students);
+    });
+  };
 
-        var responseObject = response
-        //var word = responseObject.word
-        //var lexicalCategory = responseObject.results[0].lexicalEntries[0].lexicalCategory.text
-        if(responseObject)
-        {
-          var wordData = responseObject.definitions[0]
-          //console.log(responseObject.definitions[0])
-          var definition=wordData.description
-          var lexicalCategory=wordData.wordtype
-          //console.log(lexicalCategory)
-          this.setState({
-            "word" : this.state.text, 
-            "definition" :definition,
-            "lexicalCategory": lexicalCategory     
-            
-          })
-        }
-        else
-        {
-          this.setState({
-            "word" : this.state.text, 
-            "definition" :"Not Found",
-            
-          })
+  updateAttendence(roll_no, status) {
+    var id = '';
+    if (roll_no <= 9) {
+      id = '0' + roll_no;
+    } else {
+      id = roll_no;
+    }
 
-        }
-    
-    })
+    var today = new Date();
+    var dd = today.getDate();
+    var mm = today.getMonth() + 1;
+
+    var yyyy = today.getFullYear();
+    if (dd < 10) {
+      dd = '0' + dd;
+    }
+    if (mm < 10) {
+      mm = '0' + mm;
+    }
+    today = dd + '-' + mm + '-' + yyyy;
+    var ref_path = id;
+    var class_ref = db.ref(ref_path);
+    class_ref.update({
+      [today]: status,
+    });
   }
 
-  render(){
-    return(
-      <View style={{flex:1, borderWidth:2}}>
-        <Header
-          backgroundColor={'purple'}
-          centerComponent={{
-            text: 'Pocket Dictionary',
-            style: { color: '#fff', fontSize: 20 },
-          }}
-        />
-        <View style={styles.inputBoxContainer}>
-        
-          <TextInput
-            style={styles.inputBox}
-            onChangeText={text => {
-              this.setState({
-                text: text,
-                isSearchPressed: false,
-                word  : "Loading...",
-                lexicalCategory :'',
-                examples : [],
-                definition : ""
-              });
-            }}
-            value={this.state.text}
-          />
 
-          <TouchableOpacity
-            style={styles.searchButton}
-            onPress={() => {
-              this.setState({ isSearchPressed: true });
-              this.getWord(this.state.text)
-            }}>
-            <Text style={styles.searchText}>Search</Text>
-          </TouchableOpacity>
+
+render(){
+  var all_students = this.state.all_students;
+    if (all_students.length === 0) {
+      return (
+        <View
+          style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text>No Student Found</Text>
         </View>
-        <View style={styles.outputContainer}>
-          <Text style={{fontSize:20}}>
-            {
-              this.state.isSearchPressed && this.state.word === "Loading..."
-              ? this.state.word
-              : ""
-            }
-          </Text>
-            {
-              this.state.word !== "Loading..." ?
-              (
-                <View style={{justifyContent:'center', marginLeft:10 }}>
-                  <View style={styles.detailsContainer}>
-                    <Text style={styles.detailsTitle}>
-                      Word :{" "}
-                    </Text>
-                    <Text style={{fontSize:18 }}>
-                      {this.state.word}
-                    </Text>
-                  </View>
-                  <View style={styles.detailsContainer}>
-                    <Text style={styles.detailsTitle}>
-                      Type :{" "}
-                    </Text>
-                    <Text style={{fontSize:18}}>
-                      {this.state.lexicalCategory}
-                    </Text>
-                  </View>
-                  <View style={{flexDirection:'row',flexWrap: 'wrap'}}>
-                    <Text style={styles.detailsTitle}>
-                      Definition :{" "}
-                    </Text>
-                    <Text style={{ fontSize:18}}>
-                      {this.state.definition}
-                    </Text>
-                  </View>
+      );
+    } else{
+   return (
+        <View style={styles.container}>
+          
+          <View style={{ flex: 3 }}>
+            {all_students.map((student, index) => (
+              <View key={index} style={styles.studentChartContainer}>
+                  <View
+                  key={'name' + index}
+                  style={{ flex: 1, flexDirection: 'row' }}>
+                  <Text style={{ fontSize: 15, fontWeight: 'bold',marginRight: 10 }}>
+                    {student.roll_no}.
+                  </Text>
+                  <Text style={{ fontSize: 15, fontWeight:'bold' }}>{student.name}</Text>
                 </View>
-              )
-              :null
-            }
+                <View style={{ flex: 1, flexDirection: 'row' }}>
+                  
+                  <TouchableOpacity
+                    style={
+                      this.state.presentPressedList.includes(index)
+                        ? [styles.presentButton, { backgroundColor: 'green' }]
+                        : styles.presentButton
+                    }
+                    onPress={() => {
+                      var presentPressedList = this.state.presentPressedList;
+                      presentPressedList.push(index);
+                      this.setState({ presentPressedList: presentPressedList });
+                      var roll_no = index + 1;
+                      this.updateAttendence(roll_no, 'present');
+                    }}>
+                    <Text>Present</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={
+                      this.state.absentPressedList.includes(index)
+                        ? [styles.absentButton, { backgroundColor: 'red' }]
+                        : styles.absentButton
+                    }
+                    onPress={() => {
+                      var absentPressedList = this.state.absentPressedList;
+                      absentPressedList.push(index);
+                      this.setState({ absentPressedList: absentPressedList });
+                      var roll_no = index + 1;
+                      this.updateAttendence(roll_no, 'absent');
+                    }}>
+                    <Text>Absent</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+            <View style={{ flex: 1 }}>
+            <TouchableOpacity
+              style={styles.footer}
+              onPress={() => {
+                this.props.navigation.navigate('SummaryScreen');
+              }}>
+              <Text>Submit</Text>
+            </TouchableOpacity>
+          </View>
+          </View>
+          
         </View>
-      </View>
-    )
+      );
+    }
   }
 }
 
@@ -148,42 +137,36 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  inputBoxContainer: {
-    flex:0.3,
-    alignItems:'center',
-    justifyContent:'center'
+  studentChartContainer: {
+    flexDirection: 'row',
+    padding: 10,
+    alignItems: 'center',
+    margin: 20,
+  
   },
-  inputBox: {
-    width: '80%',
-    alignSelf: 'center',
-    height: 40,
-    textAlign: 'center',
-    borderWidth: 4,
-  },
-  searchButton: {
-    width: '40%',
-    height: 40,
+  presentButton: {
+    width: 70,
+    height: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    margin: 10,
-    borderWidth: 2,
-    borderRadius: 10,
+    marginRight: 10,
+    borderWidth: 4,
   },
-  searchText:{
-    fontSize: 20,
-    fontWeight: 'bold'
+  absentButton: {
+    width: 70,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 4,
   },
-  outputContainer:{
-    flex:0.7,
-    alignItems:'center'
+  footer: {
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 67,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'yellow',
+    marginTop:10,  
   },
-  detailsContainer:{
-    flexDirection:'row',
-    alignItems:'center'
-  },
-  detailsTitle:{
-    color:'orange',
-    fontSize:20,
-    fontWeight:'bold'
-  }
 });
